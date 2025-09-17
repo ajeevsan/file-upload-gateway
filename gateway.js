@@ -5,10 +5,10 @@ const app = express();
 const cors = require("cors");
 
 // Environment configuration
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 4000;
 const BACKEND_URL = process.env.BACKEND_URL || 'http://192.168.0.103:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL 
 const NODE_ENV = process.env.NODE_ENV || 'development';
-
 // CORS configuration for production
 const corsOptions = {
   origin: function (origin, callback) {
@@ -18,8 +18,10 @@ const corsOptions = {
     const normalizedOrigin = origin.replace(/\/$/, '');
     const allowedOrigins = [
       BACKEND_URL,
+      FRONTEND_URL,
       'http://192.168.0.103:3001',
-      'http://192.168.0.103:3000',
+      'https://fileupload-app.netlify.app/',
+      'https://fileupload-backend-lkec.onrender.com'
     ];
 
     if (allowedOrigins.includes(normalizedOrigin) || NODE_ENV === 'development') {
@@ -95,12 +97,6 @@ app.post('/api/download/:id', (req, res, next) => {
   createProxy('download')(req, res, next);
 });
 
-// health
-app.get('/api/health', (req, res, next) => {
-  console.log('🏥 Health route matched');
-  createProxy('health')(req, res, next);
-})
-
 
 // Global error handler
 app.use((err, req, res, next) => {
@@ -116,7 +112,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 Proxying to backend: ${BACKEND_URL}`);
   console.log(`🌍 Environment: ${NODE_ENV}`);
   console.log('Available routes:');
-  console.log(`  get /api/health`);
   console.log(`  POST /api/upload`);
   console.log(`  POST /api/download/:id`);
 });
