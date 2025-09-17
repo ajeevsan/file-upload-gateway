@@ -12,18 +12,20 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://192.168.0.103:5137';
 // CORS configuration for production
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
+    if (!origin) return callback(null, true); // allow no-origin requests
+
+    // normalize trailing slashes
+    const normalizedOrigin = origin.replace(/\/$/, '');
     const allowedOrigins = [
-      FRONTEND_URL,
+      FRONTEND_URL.replace(/\/$/, ''),
       'http://192.168.0.103:3001',
       'http://192.168.0.103:3000',
     ];
-    
-    if (allowedOrigins.includes(origin) || NODE_ENV === 'development') {
+
+    if (allowedOrigins.includes(normalizedOrigin) || NODE_ENV === 'development') {
       callback(null, true);
     } else {
+      console.log('❌ CORS blocked:', normalizedOrigin);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -31,6 +33,7 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-forwarded-host', 'x-forwarded-proto']
 };
+
 
 app.use(cors(corsOptions));
 
