@@ -1,7 +1,9 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
+const cors = require("cors")
 
+app.use(cors())
 // Add logging middleware FIRST
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
@@ -25,6 +27,11 @@ const createProxy = (routeName) => createProxyMiddleware({
     '^/api': '', // Remove /api prefix
   },
   onProxyReq: (proxyReq, req, res) => {
+    // Set headers to let backend know it's coming through gateway
+    proxyReq.setHeader('x-forwarded-host', 'localhost:4000');
+    proxyReq.setHeader('x-forwarded-proto', req.protocol);
+    proxyReq.setHeader('x-original-host', req.get('host'));
+    
     console.log(`🔄 [${routeName}] Proxying: ${req.method} ${req.originalUrl} → http://localhost:3000${proxyReq.path}`);
   },
   onProxyRes: (proxyRes, req, res) => {
@@ -58,8 +65,6 @@ app.get('/api/health', (req, res, next) => {
   console.log('🏥 Health route matched');
   createProxy('health')(req, res, next);
 });
-
-
 
 app.listen(4000, () => {
   console.log('Gateway running on port 4000');
