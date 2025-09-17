@@ -88,6 +88,19 @@ app.post('/api/download/:id', (req, res, next) => {
   createProxy('download')(req, res, next);
 });
 
+app.get('/', (req, res) => {
+  res.send('API Gateway is up and running');
+});
+
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    backend_url: BACKEND_URL,
+    environment: NODE_ENV
+  });
+});
+
 
 // Global error handler
 app.use((err, req, res, next) => {
