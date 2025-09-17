@@ -1,46 +1,82 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
-const cors = require("cors")
+const cors = require("cors");
 
-app.use(cors())
-// Add logging middleware FIRST
+// Environment configuration
+const PORT = process.env.PORT || 4000;
+const BACKEND_URL = process.env.BACKEND_URL || 'http://192.168.0.103:3000';
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://192.168.0.103:5137';
+
+// CORS configuration for production
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      FRONTEND_URL,
+      'http://192.168.0.103:3001',
+      'http://192.168.0.103:3000',
+    ];
+    
+    if (allowedOrigins.includes(origin) || NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-forwarded-host', 'x-forwarded-proto']
+};
+
+app.use(cors(corsOptions));
+
+// Add logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  console.log('Headers:', {
+    host: req.get('host'),
+    origin: req.get('origin'),
+    'user-agent': req.get('user-agent')
+  });
   next();
 });
 
-// Simple test routes
-app.get('/', (req, res) => {
-  res.json({ message: 'Gateway root is working' });
-});
-
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'API test route is working' });
-});
-
-// Create individual proxy configurations for each route
+// Create proxy middleware with proper error handling
 const createProxy = (routeName) => createProxyMiddleware({
-  target: 'http://localhost:3000',
+  target: BACKEND_URL,
   changeOrigin: true,
+  timeout: 30000, // 30 second timeout
   pathRewrite: {
     '^/api': '', // Remove /api prefix
   },
   onProxyReq: (proxyReq, req, res) => {
     // Set headers to let backend know it's coming through gateway
-    proxyReq.setHeader('x-forwarded-host', 'localhost:4000');
+    const host = req.get('host');
+    proxyReq.setHeader('x-forwarded-host', host);
     proxyReq.setHeader('x-forwarded-proto', req.protocol);
-    proxyReq.setHeader('x-original-host', req.get('host'));
+    proxyReq.setHeader('x-original-host', host);
+    proxyReq.setHeader('x-gateway-request', 'true');
     
-    console.log(`🔄 [${routeName}] Proxying: ${req.method} ${req.originalUrl} → http://localhost:3000${proxyReq.path}`);
+    console.log(`🔄 [${routeName}] Proxying: ${req.method} ${req.originalUrl} → ${BACKEND_URL}${proxyReq.path}`);
   },
   onProxyRes: (proxyRes, req, res) => {
     console.log(`✅ [${routeName}] Response: ${proxyRes.statusCode}`);
   },
   onError: (err, req, res) => {
     console.error(`❌ [${routeName}] Proxy error:`, err.message);
+    console.error(`Backend URL: ${BACKEND_URL}`);
+    
     if (!res.headersSent) {
-      res.status(502).json({ error: 'Bad Gateway', details: err.message, route: routeName });
+      res.status(502).json({ 
+        error: 'Bad Gateway', 
+        details: NODE_ENV === 'development' ? err.message : 'Backend service unavailable',
+        route: routeName,
+        backend_url: NODE_ENV === 'development' ? BACKEND_URL : 'hidden'
+      });
     }
   }
 });
@@ -56,23 +92,21 @@ app.post('/api/download/:id', (req, res, next) => {
   createProxy('download')(req, res, next);
 });
 
-app.get('/api/file/:id', (req, res, next) => {
-  console.log('📁 File route matched:', req.params.id);
-  createProxy('file')(req, res, next);
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: NODE_ENV === 'development' ? err.message : 'Something went wrong'
+  });
 });
 
-app.get('/api/health', (req, res, next) => {
-  console.log('🏥 Health route matched');
-  createProxy('health')(req, res, next);
-});
-
-app.listen(4000, () => {
-  console.log('Gateway running on port 4000');
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 API Gateway running on port ${PORT}`);
+  console.log(`📡 Proxying to backend: ${BACKEND_URL}`);
+  console.log(`🌍 Environment: ${NODE_ENV}`);
   console.log('Available routes:');
-  console.log('  GET  http://localhost:4000/');
-  console.log('  GET  http://localhost:4000/api/test');
-  console.log('  GET  http://localhost:4000/api/health');
-  console.log('  POST http://localhost:4000/api/upload');
-  console.log('  POST http://localhost:4000/api/download/:id');
-  console.log('  GET  http://localhost:4000/api/file/:id');
+  console.log(`  POST /api/upload`);
+  console.log(`  POST /api/download/:id`);
 });
