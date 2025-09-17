@@ -96,7 +96,7 @@ app.post('/api/download/:id', (req, res, next) => {
 });
 
 // health
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req, res, next) => {
   console.log('🏥 Health route matched');
   createProxy('health')(req, res, next);
 })
