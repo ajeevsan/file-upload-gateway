@@ -21,7 +21,7 @@ const corsOptions = {
       FRONTEND_URL,
       'http://192.168.0.103:3001',
       'https://fileupload-app.netlify.app/',
-      'https://fileupload-backend-lkec.onrender.com'
+      'https://file-upload-gateway-1-1moy.onrender.com'
     ];
 
     if (allowedOrigins.includes(normalizedOrigin) || NODE_ENV === 'development') {
@@ -74,15 +74,6 @@ const createProxy = (routeName) => createProxyMiddleware({
   onError: (err, req, res) => {
     console.error(`❌ [${routeName}] Proxy error:`, err.message);
     console.error(`Backend URL: ${BACKEND_URL}`);
-    
-    if (!res.headersSent) {
-      res.status(502).json({ 
-        error: 'Bad Gateway', 
-        details: NODE_ENV === 'development' ? err.message : 'Backend service unavailable',
-        route: routeName,
-        backend_url: NODE_ENV === 'development' ? BACKEND_URL : 'hidden'
-      });
-    }
   }
 });
 
